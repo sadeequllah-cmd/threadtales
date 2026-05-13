@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThreadTales — Thrift Store</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script>
+tailwind.config={theme:{extend:{colors:{cream:'#FAF7F2',sand:'#F0EBE3',charcoal:'#1A1A1A',warmgray:'#8A8278',terracotta:'#C45D3E','terra-dark':'#A84B30',bord:'#E8E2D9',sage:'#4A7C59',amber:'#F59E0B','amber-dark':'#D97706'},fontFamily:{display:['Playfair Display','serif'],sans:['DM Sans','sans-serif']}}}}
+</script>
+<style>
+:root{--bg:#FAF7F2;--fg:#1A1A1A;--muted:#8A8278;--accent:#C45D3E;--card:#fff;--border:#E8E2D9;--sand:#F0EBE3}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{background:var(--bg);color:var(--fg);font-family:'DM Sans',sans-serif;margin:0}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--sand)}::-webkit-scrollbar-thumb{background:var(--muted);border-radius:3px}
+.skip-link{position:absolute;top:-100px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:8px 20px;border-radius:0 0 8px 8px;z-index:9999;font-weight:600;font-size:14px;transition:top .2s}.skip-link:focus{top:0}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(15px,-20px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-10px,15px)}}
+.anim-fade-up{animation:fadeUp .5s ease-out both}.anim-fade-in{animation:fadeIn .35s ease-out both}.anim-scale-in{animation:scaleIn .3s ease-out both}.anim-slide-right{animation:slideRight .35s ease-out both}
+.stagger-1{animation-delay:.05s}.stagger-2{animation-delay:.1s}.stagger-3{animation-delay:.15s}.stagger-4{animation-delay:.2s}.stagger-5{animation-delay:.25s}
+.hero-bg{background:linear-gradient(135deg,#FAF7F2 0%,#F0EBE3 40%,#E8D5C4 70%,#D4B89C 100%);position:relative;overflow:hidden}
+.hero-bg::before{content:'';position:absolute;top:-50%;right:-20%;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(196,93,62,.08)0%,transparent 70%);animation:float1 12s ease-in-out infinite}
+.hero-bg::after{content:'';position:absolute;bottom:-30%;left:-10%;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(74,124,89,.06)0%,transparent 70%);animation:float2 10s ease-in-out infinite}
+.product-card{transition:transform .25s,box-shadow .25s}.product-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(26,26,26,.07)}
+.product-card img{transition:transform .4s}.product-card:hover img{transform:scale(1.04)}
+.sold-overlay{position:absolute;inset:0;background:rgba(26,26,26,.4);display:flex;align-items:center;justify-content:center;z-index:2;border-radius:inherit}
+.sold-badge{background:var(--fg);color:var(--bg);padding:5px 16px;font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;transform:rotate(-8deg)}
+.cat-pill{transition:all .2s;white-space:nowrap;border:1.5px solid var(--border);background:var(--card);cursor:pointer}
+.cat-pill:hover{border-color:var(--accent);color:var(--accent)}.cat-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.toast{animation:slideRight .3s ease-out both}
+.modal-backdrop{background:rgba(26,26,26,.5);backdrop-filter:blur(3px)}.modal-content{animation:scaleIn .25s ease-out both}
+.input-field{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:14px;transition:border-color .2s;outline:none}
+.input-field:focus{border-color:var(--accent)}.input-field::placeholder{color:var(--muted)}
+.btn-primary{background:var(--accent);color:#fff;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px;border:none;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-primary:hover{background:var(--accent-dark,#A84B30);transform:translateY(-1px)}
+.btn-secondary{background:transparent;color:var(--fg);padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px;border:1.5px solid var(--border);cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-secondary:hover{border-color:var(--fg)}
+.btn-wa{background:#25D366;color:#fff;padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px;border:none;cursor:pointer;transition:all .2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.btn-wa:hover{background:#1EBE5A;transform:translateY(-1px)}
+.btn-cart{background:#F59E0B;color:#fff;padding:10px 22px;border-radius:8px;font-weight:700;font-size:14px;border:none;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-cart:hover{background:#D97706;transform:translateY(-1px)}
+.btn-buy{background:var(--accent);color:#fff;padding:10px 22px;border-radius:8px;font-weight:700;font-size:14px;border:none;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-buy:hover{background:#A84B30;transform:translateY(-1px)}
+.upload-area{border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;background:var(--sand)}
+.upload-area:hover,.upload-area.dragover{border-color:var(--accent);background:rgba(196,93,62,.04)}
+.admin-table{width:100%;border-collapse:separate;border-spacing:0}
+.admin-table th{text-align:left;padding:10px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);border-bottom:1.5px solid var(--border);font-weight:600}
+.admin-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.admin-table tr:hover td{background:var(--sand)}
+.star{color:#F59E0B}.star-empty{color:#D1D5DB}
+.size-btn{padding:6px 14px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;background:#fff;font-family:inherit}
+.size-btn:hover{border-color:var(--accent)}.size-btn.selected{border-color:var(--accent);background:rgba(196,93,62,.06);color:var(--accent);font-weight:700}
+.color-swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);cursor:pointer;transition:all .15s}
+.color-swatch:hover{transform:scale(1.15)}.color-swatch.selected{border-color:var(--accent);box-shadow:0 0 0 2px rgba(196,93,62,.3)}
+.hscroll{display:flex;overflow-x:auto;gap:12px;scroll-snap-type:x mandatory;-ms-overflow-style:none;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{display:none}.hscroll>*{scroll-snap-align:start;flex-shrink:0}
+.reveal{opacity:0;transform:translateY(20px);transition:all .5s cubic-bezier(.22,1,.36,1)}.reveal.visible{opacity:1;transform:translateY(0)}
+.rating-bar{height:14px;border-radius:2px;background:#F59E0B;transition:width .6s ease}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40}.sidebar-overlay.show{display:block}
+.admin-sidebar{background:var(--fg);color:#fff;min-height:100vh;width:250px;transition:transform .3s}
+.admin-sidebar a{transition:all .2s;border-radius:6px}.admin-sidebar a:hover{background:rgba(255,255,255,.08)}.admin-sidebar a.active{background:var(--accent)}
+.shortcuts-panel{position:fixed;bottom:20px;right:20px;z-index:95;width:340px;max-height:80vh;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.15);padding:20px;animation:scaleIn .2s ease-out both}
+.kbd{display:inline-block;padding:2px 6px;background:#F3F4F6;border:1px solid #D1D5DB;border-radius:4px;font-size:11px;font-family:monospace;color:#374151;box-shadow:0 1px 0 #D1D5DB}
+.detail-img-main{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:zoom-in}
+.detail-thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:all .15s}
+.detail-thumb:hover{border-color:var(--accent)}.detail-thumb.active{border-color:var(--accent);opacity:1}
+.detail-thumb:not(.active){opacity:.6}
+@media(max-width:768px){.admin-sidebar{position:fixed;left:0;top:0;z-index:50;transform:translateX(-100%)}.admin-sidebar.open{transform:translateX(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div id="app"></div>
+<div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" style="max-width:360px"></div>
+<div id="modal-root" class="hidden fixed inset-0 z-[90]"></div>
+<div id="shortcuts-panel" class="hidden"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const DEFAULT_PWD='threadtales2024';
+const CATS={
+  shirts:{label:'Shirts',subs:['Formal','Casual','Vintage Tee']},
+  trousers:{label:'Trousers & Pants',subs:['Denim','Chinos','Formal']},
+  boots:{label:'Boots & Chappal',subs:['Boots','Chappal','Sandals']},
+  others:{label:'Others',subs:['Accessories','Hats','Seasonal']}
+};
+const REVIEWERS=['Ahmed K.','Bilal S.','Hassan M.','Usman A.','Farhan R.','Ali Z.','Kamran J.','Tariq N.','Waqar H.','Imran D.','Salman F.','Faisal G.','Rizwan P.','Naveed Q.','Adnan L.','Junaid B.','Omar Y.','Shehzad T.','Danish W.','Kashif E.'];
+const REVIEW_TEMPLATES=[
+  "Excellent quality for a thrift find. Looks almost new!",
+  "Great value for money. Minor wear but barely noticeable.",
+  "Exactly as described. Communication via WhatsApp was quick.",
+  "Fit is perfect. Material feels premium for the price.",
+  "Very happy with this purchase. Will buy again from ThreadTales.",
+  "Good condition overall. One small flaw but doesn't affect the look.",
+  "Fast response from the seller. Item matches the photos.",
+  "Surprised by the quality. Better than expected for second-hand.",
+  "Decent item. Packaging was careful. Recommended seller.",
+  "Love it! The vintage vibe is exactly what I was looking for.",
+  "True to size. Washed it once and it held up well.",
+  "My friends thought it was brand new. That says a lot!",
+  "Slightly faded but that adds character. Very happy.",
+  "Ordered two items and both exceeded expectations.",
+  "Perfect for the price point. No complaints at all."
+];
+const COLOR_MAP={White:'#F5F5F5',Blue:'#3B82F6',Cream:'#FFF8E1',Black:'#1A1A1A',Grey:'#9CA3AF',Navy:'#1E3A5F',Red:'#DC2626',Green:'#16A34A',Brown:'#92400E',Khaki:'#C2B280',Beige:'#D4C5A9',Olive:'#556B2F',Tan:'#D2B48C',Maroon:'#800000',Teal:'#0D9488',Pink:'#EC4899',Charcoal:'#36454F',LightGrey:'#D1D5DB',DarkGrey:'#4B5563',LightKhaki:'#E8DCC8',Sky:'#7DD3FC'};
+
+/* ============================================================
+   PRODUCT DATA — 20 PER CATEGORY (80 TOTAL)
+   ============================================================ */
+// Format: [name, brand, sub, price, origPrice, sizesCSV, colorsCSV, fabric, care, condition, seed]
+const SHIRTS_RAW=[
+["Oxford Button-Down","Van Heusen","Formal",450,2200,"38,40,42,44","White,Blue,Cream","100% Cotton","Machine Wash","Excellent","oxf1"],
+["Slim Fit Dress Shirt","Peter England","Formal",380,1800,"39,40,41,42","White,LightBlue","Cotton Blend","Machine Wash","Excellent","peter1"],
+["French Cuff Formal","Arrow","Formal",520,2800,"40,41,42,43","White,Cream","100% Cotton","Dry Clean","Good","arrow1"],
+["Mandarin Collar Shirt","Bonanza","Formal",350,1500,"38,39,40,42","White,Beige","Cotton","Machine Wash","Good","bon1"],
+["Striped Office Shirt","H&M","Formal",400,1900,"39,40,41,42","Blue,White,Charcoal","Cotton","Machine Wash","Excellent","hm1"],
+["Linen Blend Formal","Zara","Formal",600,3500,"40,41,42","Cream,White,Beige","Linen Cotton","Hand Wash","Good","zara1"],
+["Pinstripe Business Shirt","Nike Golf","Formal",480,2400,"39,40,42,44","White,Navy","Cotton Polyester","Machine Wash","Excellent","nike1"],
+["Oversized Graphic Tee","Zara","Casual",300,1500,"M,L,XL","Black,White,Grey","100% Cotton","Machine Wash","Good","zara2"],
+["Camp Collar Tropical","Pull&Bear","Casual",280,1200,"M,L,XL","Olive,Sky,Cream","Cotton","Machine Wash","Good","pull1"],
+["Polo Ralph Lauren Polo","Ralph Lauren","Casual",650,4500,"M,L,XL","Navy,Red,White","Cotton Pique","Machine Wash","Excellent","rl1"],
+["Flannel Check Shirt","Levi's","Casual",420,2000,"M,L,XL,XXL","Red,Blue,Green","Cotton Flannel","Machine Wash","Good","levi1"],
+["Denim Shirt","Wrangler","Casual",500,2500,"M,L,XL","Blue,LightBlue","100% Denim","Machine Wash","Excellent","wran1"],
+["Linen Summer Shirt","Uniqlo","Casual",320,1400,"M,L,XL","White,Sky,Sand","Linen","Machine Wash","Good","uniq1"],
+["Pocket Tee Casual","H&M","Casual",200,800,"S,M,L,XL","Grey,Black,White","Cotton","Machine Wash","Excellent","hm2"],
+["Cuban Collar Shirt","Tommy Hilfiger","Casual",550,3000,"M,L,XL","Navy,Cream,Khaki","Cotton","Machine Wash","Good","tom1"],
+["Vintage Band Tee","Faded Glory","Vintage Tee",350,0,"M,L","Black,DarkGrey","Cotton","Machine Wash","Fair","band1"],
+["90s Nike Swoosh","Nike","Vintage Tee",500,0,"L,XL","Grey,White","Cotton","Machine Wash","Fair","vnike1"],
+["Retro Striped Tee","Adidas","Vintage Tee",300,0,"M,L,XL","Navy,Red,Green","Cotton","Machine Wash","Good","retro1"],
+["Washed Graphic Print","Unknown","Vintage Tee",250,0,"M,L","Black,Brown","Cotton","Machine Wash","Fair","wash1"],
+["Distressed Logo Tee","Levi's Vintage","Vintage Tee",600,0,"L,XL","Cream,Blue","Cotton","Machine Wash","Good","dist1"],
+["Motorcycle Club Tee","Harley Davidson","Vintage Tee",800,0,"L,XL","Black,Charcoal","Cotton","Machine Wash","Fair","harley1"]
+];
+const TROUSERS_RAW=[
+["501 Original Fit","Levi's","Denim",800,4500,"30,32,34,36","Blue,Black","100% Cotton Denim","Machine Wash","Good","l501"],
+["511 Slim Fit","Levi's","Denim",750,3800,"30,32,34,36","DarkBlue,Black","Cotton Elastane","Machine Wash","Excellent","l511"],
+["513 Straight Fit","Levi's","Denim",700,3500,"30,32,34,36","Blue,LightBlue","Cotton Denim","Machine Wash","Good","l513"],
+["Wrangler Authentics","Wrangler","Denim",650,3000,"30,32,34,36","Blue,Black,Brown","Cotton","Machine Wash","Good","wden1"],
+["Lee Dungaree Fit","Lee","Denim",720,3200,"30,32,34,36","Navy,Charcoal","Cotton","Machine Wash","Excellent","lee1"],
+["Skinny Stretch Denim","Zara","Denim",550,2500,"28,30,32,34","Black,Blue,Grey","Cotton Elastane","Machine Wash","Good","zden1"],
+["Baggy Carpenter Jeans","Dickies","Denim",600,2800,"32,34,36,38","Blue,Khaki","Cotton","Machine Wash","Fair","dick1"],
+["Slim Tapered Chinos","Uniqlo","Chinos",500,2200,"30,32,34,36","Khaki,Navy,Olive","Cotton","Machine Wash","Excellent","uchi1"],
+["Straight Fit Chinos","H&M","Chinos",420,1800,"30,32,34,36","Beige,Grey,Navy","Cotton","Machine Wash","Good","hchi1"],
+["Cargo Chinos","Tommy Hilfiger","Chinos",680,3500,"32,34,36","Khaki,Olive,Black","Cotton","Machine Wash","Excellent","tchi1"],
+["Stretch Chinos","Bonanza","Chinos",380,1600,"30,32,34","Beige,Cream,Grey","Cotton Spandex","Machine Wash","Good","bchi1"],
+["Pleated Chinos","Zara","Chinos",550,2800,"30,32,34,36","Black,Navy,Khaki","Cotton","Machine Wash","Good","zchi1"],
+["Corduroy Trousers","Pull&Bear","Chinos",480,2000,"30,32,34","Brown,Olive,Beige","Corduroy Cotton","Machine Wash","Good","pcord1"],
+["Drawstring Chinos","Nike","Chinos",520,2400,"M,L,XL","Black,Grey,Navy","Cotton","Machine Wash","Excellent","nchi1"],
+["Linen Drawstring","Uniqlo","Chinos",400,1800,"M,L,XL","Cream,White,Olive","Linen","Hand Wash","Good","ulin1"],
+["Formal Wool Trousers","Van Heusen","Formal",600,3000,"32,34,36","Black,Charcoal,Grey","Wool Blend","Dry Clean","Excellent","vform1"],
+["Flat Front Dress Pants","Peter England","Formal",450,2200,"32,34,36","Black,Navy,Grey","Polyester Wool","Dry Clean","Good","pform1"],
+["Pleated Formal Trousers","Arrow","Formal",550,2800,"32,34,36,38","Black,Charcoal","Polyester","Dry Clean","Good","aform1"],
+["Slim Fit Suit Pants","Hugo Boss","Formal",900,5500,"32,34,36","Black,Navy","Wool","Dry Clean","Excellent","hugo1"],
+["Tapered Formal","Bonanza","Formal",380,1800,"32,34,36","Black,Grey,Charcoal","Polyester","Dry Clean","Fair","bform1"],
+["Cargo Work Pants","Dickies","Denim",650,3000,"32,34,36","Khaki,Black","Cotton","Machine Wash","Good","dcargo1"]
+];
+const BOOTS_RAW=[
+["Chelsea Leather Boots","Clarks","Boots",1200,6000,"8,9,10,11","Brown,Black","Leather","Polish","Good","chel1"],
+["Desert Boots","Clarks","Boots",1000,5000,"8,9,10,11","Sand,Brown,Black","Suede","Brush Clean","Good","des1"],
+["Combat Boots","Dr. Martens","Boots",1800,9000,"9,10,11,12","Black,Brown","Leather","Wipe Clean","Excellent","dm1"],
+["Lace-Up Ankle Boots","Woodland","Boots",1400,5500,"8,9,10,11","Brown,Tan","Leather","Polish","Good","wood1"],
+["Hiking Boots","Columbia","Boots",1100,5000,"9,10,11","Brown,Grey,Navy","Leather Synthetic","Waterproof Spray","Good","col1"],
+["Motorcycle Boots","Harley Davidson","Boots",2200,10000,"10,11,12","Black","Full Grain Leather","Polish","Good","moto1"],
+["Suede Chukka Boots","Timberland","Boots",1300,6000,"8,9,10,11","Sand,Brown,Blue","Suede","Brush Clean","Excellent","tim1"],
+["Cap-Toe Formal Boots","Hush Puppies","Boots",900,4000,"8,9,10","Black,Brown","Leather","Polish","Good","hp1"],
+["Safety Work Boots","Caterpillar","Boots",1500,6500,"9,10,11,12","Brown,Black","Leather Steel Toe","Wipe Clean","Fair","cat1"],
+["Brogue Boots","Red Tape","Boots",800,3800,"8,9,10","Brown,Tan","Leather","Polish","Good","red1"],
+["Kolhapuri Chappal","Handcrafted","Chappal",250,800,"8,9,10,11","Brown,Red,Tan","Leather","Wipe Clean","New","kol1"],
+["Peshawari Chappal","Handcrafted","Chappal",350,1200,"8,9,10,11","Brown,Tan","Leather","Wipe Clean","New","pesh1"],
+["Leather Sandal Chappal","Bata","Chappal",200,700,"8,9,10","Brown,Black","Leather","Wipe Clean","Good","bata1"],
+["Casual Slide Chappal","Aqua","Chappal",150,500,"8,9,10,11","Brown,Black","Rubber Leather","Wash","Good","aqua1"],
+["Strappy Leather Chappal","Crocs","Chappal",280,1000,"8,9,10","Brown,Tan","Leather","Wipe Clean","Good","crocs1"],
+["Walled Chappal","Servis","Chappal",180,600,"9,10,11","Brown,Black","Leather","Wipe Clean","New","serv1"],
+["Traditional Jutti","Handcrafted","Chappal",400,1500,"8,9,10","Brown,Maroon","Leather Embroidered","Wipe Clean","New","jut1"],
+["Nike Slide Sandals","Nike","Sandals",450,2000,"9,10,11","Black,White,Navy","Synthetic","Wash","Good","nsand1"],
+["Adidas Sport Sandals","Adidas","Sandals",400,1800,"9,10,11","Black,Grey,Blue","Synthetic","Wash","Excellent","asand1"],
+["Leather Strap Sandals","Woodland","Sandals",600,2500,"8,9,10,11","Brown,Tan,Black","Leather","Wipe Clean","Good","wsand1"],
+["Birkenstock Style","Unknown","Sandals",350,3000,"9,10,11","Brown,Black","Cork Leather","Wipe Clean","Good","birk1"],
+["Hiking Sandals","Columbia","Sandals",500,2200,"9,10,11","Grey,Brown,Olive","Synthetic","Wash","Good","hsand1"]
+];
+const OTHERS_RAW=[
+["Leather Belt — Classic","Tommy Hilfiger","Accessories",400,1800,"32,34,36","Brown,Black","Genuine Leather","Wipe Clean","Excellent","belt1"],
+["Canvas Belt","Uniqlo","Accessories",200,600,"32,34,36","Khaki,Navy,Olive","Canvas","Machine Wash","Good","cbelt1"],
+["Woven Fabric Belt","H&M","Accessories",250,800,"One Size","Multi","Fabric","Machine Wash","Good","wbelt1"],
+["Aviator Sunglasses","Ray-Ban","Accessories",800,5000,"One Size","Black,Brown,Gold","Metal Glass","Lens Wipe","Good","ray1"],
+["Leather Wallet","Arrow","Accessories",350,1500,"One Size","Brown,Black","Genuine Leather","Wipe Clean","Excellent","wall1"],
+["Silk Pocket Square","Zara","Accessories",200,800,"One Size","Navy,Burgundy,Cream","Silk","Hand Wash","New","silk1"],
+["Wool Scarf","Unknown","Seasonal",300,1200,"One Size","Grey,Brown,Navy","Wool","Hand Wash","Good","scarf1"],
+["Summer Straw Hat","Unknown","Hats",350,1500,"M,L","Natural,Brown","Straw","Spot Clean","Good","straw1"],
+["Wool Beanie","Carhartt","Hats",250,1000,"One Size","Black,Grey,Navy","Wool Acrylic","Hand Wash","Excellent","bean1"],
+["Baseball Cap","Nike","Hats",300,1200,"One Size","Black,White,Navy","Cotton","Machine Wash","Good","cap1"],
+["Fedora Hat","Unknown","Hats",400,1800,"M,L","Charcoal,Brown,Tan","Wool Felt","Brush Clean","Good","fedor1"],
+["Trucker Hat","Unknown","Hats",200,700,"One Size","Multi","Cotton Mesh","Machine Wash","Good","truck1"],
+["Bucket Hat","Zara","Hats",280,1000,"M,L","Khaki,Navy,Black","Cotton","Machine Wash","Good","buck1"],
+["Leather Gloves","Unknown","Seasonal",350,1400,"M,L","Brown,Black","Leather","Wipe Clean","Good","glov1"],
+["Cotton Summer Scarf","Uniqlo","Seasonal",200,700,"One Size","White,Cream,Blue","Cotton","Machine Wash","New","cscarf1"],
+["Thermal Socks 3-Pack","Unknown","Seasonal",250,800,"One Size","Black,Grey","Wool Cotton","Machine Wash","New","sock1"],
+["Crossbody Bag","Unknown","Accessories",500,2000,"One Size","Brown,Black","Canvas Leather","Wipe Clean","Good","bag1"],
+["Wristwatch — Vintage","Seiko","Accessories",1500,8000,"One Size","Silver,Gold","Stainless Steel","Wipe Clean","Good","watch1"],
+["Linen Tote Bag","Unknown","Accessories",300,1000,"One Size","Cream,Natural","Linen","Hand Wash","New","tote1"],
+["Silk Tie Set","Van Heusen","Accessories",450,2000,"One Size","Navy,Burgundy,Red","Silk","Dry Clean","Excellent","tie1"],
+["Rain Poncho","Columbia","Seasonal",400,1800,"One Size","Navy,Olive","Nylon","Wipe Clean","Good","poncho1"]
+];
+
+function expandProducts(raw, cat) {
+  return raw.map((r, i) => {
+    const sd = r[10];
+    return {
+      id: cat[0]+i, name:r[0], brand:r[1], subcategory:r[2], price:r[3], originalPrice:r[4],
+      sizes:r[5].split(','), colors:r[6].split(','), fabricType:r[7], careInstructions:r[8], condition:r[9],
+      images:[`https://picsum.photos/seed/${sd}/600/600`,`https://picsum.photos/seed/${sd}b/600/600`,`https://picsum.photos/seed/${sd}c/600/600`,`https://picsum.photos/seed/${sd}d/600/600`],
+      category:cat, status:i<Math.ceil(raw.length*0.75)?'available':'sold',
+      createdAt:Date.now()-86400000*(raw.length-i), rating:+(3.8+Math.random()*1.2).toFixed(1),
+      reviewCount:Math.floor(8+Math.random()*120),
+      description:`Pre-loved ${r[1]} ${r[0]} in ${r[9].toLowerCase()} condition. Made with ${r[7]}. Care: ${r[8]}. Originally priced at PKR ${r[4].toLocaleString()}, now available at a fraction of the cost. A one-of-a-kind thrift find that combines quality with sustainability.`
+    };
+  });
+}
+function getAllSeedProducts() {
+  return [...expandProducts(SHIRTS_RAW,'shirts'),...expandProducts(TROUSERS_RAW,'trousers'),...expandProducts(BOOTS_RAW,'boots'),...expandProducts(OTHERS_RAW,'others')];
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+function getProducts(){const d=localStorage.getItem('tt_products');if(!d){const p=getAllSeedProducts();localStorage.setItem('tt_products',JSON.stringify(p));return p.map(x=>({...x}));}return JSON.parse(d);}
+function saveProducts(p){localStorage.setItem('tt_products',JSON.stringify(p));}
+function getSettings(){const d=localStorage.getItem('tt_settings');if(!d){const s={phone:'+92 312 3456789',email:'hello@threadtales.pk',address:'42 Vintage Lane, Zamzama, Karachi 75600',currency:'PKR '};localStorage.setItem('tt_settings',JSON.stringify(s));return s;}return JSON.parse(d);}
+function saveSettings(s){localStorage.setItem('tt_settings',JSON.stringify(s));}
+function getAuth(){return sessionStorage.getItem('tt_auth')==='true';}
+function setAuth(v){if(v)sessionStorage.setItem('tt_auth','true');else sessionStorage.removeItem('tt_auth');}
+function getCart(){return JSON.parse(sessionStorage.getItem('tt_cart')||'[]');}
+function saveCart(c){sessionStorage.setItem('tt_cart',JSON.stringify(c));}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+async function hashPwd(p){const e=new TextEncoder().encode(p);const b=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+async function verifyPwd(p){const s=localStorage.getItem('tt_pwd_hash');if(!s){const h=await hashPwd(DEFAULT_PWD);localStorage.setItem('tt_pwd_hash',h);return p===DEFAULT_PWD;}return await hashPwd(p)===s;}
+async function changePwd(o,n){if(!(await verifyPwd(o)))return false;localStorage.setItem('tt_pwd_hash',await hashPwd(n));return true;}
+function genId(){return 'p'+Date.now()+Math.random().toString(36).substr(2,4);}
+function fmtPrice(p){return getSettings().currency+p.toLocaleString('en-PK');}
+function waUrl(prod,size,color){const s=getSettings();const ph=s.phone.replace(/[^0-9]/g,'');let msg=`Hi! I'm interested in "${prod.name}" (${prod.brand}) priced at ${fmtPrice(prod.price)}.`;if(size)msg+=` Size: ${size}.`;if(color)msg+=` Color: ${color}.`;msg+=' Is it available?';return`https://wa.me/${ph}?text=${encodeURIComponent(msg)}`;}
+function starsHTML(rating,size='text-sm'){let h='';for(let i=1;i<=5;i++){if(i<=Math.floor(rating))h+=`<i class="fa-solid fa-star star ${size}"></i>`;else if(i-rating<1)h+=`<i class="fa-solid fa-star-half-stroke star ${size}"></i>`;else h+=`<i class="fa-regular fa-star star-empty ${size}"></i>`;}return h;}
+function genReviews(productId, count){
+  const reviews=[];const n=Math.min(count,6);
+  for(let i=0;i<n;i++){
+    const stars=Math.random()>0.3?Math.floor(4+Math.random()*1.1):Math.floor(3+Math.random()*1.1);
+    reviews.push({name:REVIEWERS[(productId.length+i)%REVIEWERS.length],rating:stars,text:REVIEW_TEMPLATES[(productId.charCodeAt(1)+i)%REVIEW_TEMPLATES.length],date:`May ${5+i*3}, 2025`,verified:i<4,helpful:Math.floor(Math.random()*30)});
+  }
+  return reviews;
+}
+function compressImage(file,maxW=800,q=0.7){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=()=>rej(new Error('Failed'));r.onload=(e)=>{const img=new Image();img.onerror=()=>rej(new Error('Invalid'));img.onload=()=>{const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>maxW){h=(maxW/w)*h;w=maxW;}c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',q));};img.src=e.target.result;};r.readAsDataURL(file);});}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function showToast(msg,type='success',dur=3500){const c=document.getElementById('toast-container');const cols={success:'border-l-4 border-sage bg-white',error:'border-l-4 border-red-500 bg-white',info:'border-l-4 border-terracotta bg-white'};const icons={success:'fa-circle-check text-sage',error:'fa-circle-xmark text-red-500',info:'fa-circle-info text-terracotta'};const el=document.createElement('div');el.className=`toast pointer-events-auto ${cols[type]} rounded-xl shadow-lg px-4 py-3 flex items-start gap-3`;el.innerHTML=`<i class="fa-solid ${icons[type]} mt-0.5"></i><span class="text-sm text-charcoal flex-1">${msg}</span><button onclick="this.parentElement.remove()" class="text-warmgray hover:text-charcoal text-xs ml-1"><i class="fa-solid fa-xmark"></i></button>`;c.appendChild(el);setTimeout(()=>{if(el.parentElement){el.style.opacity='0';el.style.transform='translateX(30px)';el.style.transition='all .3s';setTimeout(()=>el.remove(),300);}},dur);}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function openModal(html){const r=document.getElementById('modal-root');r.className='fixed inset-0 z-[90] modal-backdrop anim-fade-in flex items-center justify-center p-4';r.innerHTML=`<div class="modal-content bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">${html}</div>`;r.onclick=(e)=>{if(e.target===r)closeModal();};}
+function closeModal(){const r=document.getElementById('modal-root');r.className='hidden fixed inset-0 z-[90]';r.innerHTML='';}
+
+/* ============================================================
+   KEYBOARD SHORTCUTS
+   ============================================================ */
+let shortcutsVisible=false;
+function toggleShortcuts(){
+  shortcutsVisible=!shortcutsVisible;
+  const p=document.getElementById('shortcuts-panel');
+  if(shortcutsVisible){
+    p.className='shortcuts-panel';
+    p.innerHTML=`
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-base">Keyboard Shortcuts</h3>
+        <button onclick="toggleShortcuts()" class="text-warmgray hover:text-charcoal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="flex flex-col gap-2.5 text-sm">
+        ${[['Search','Alt + /'],['Cart','Shift + Alt + C'],['Home','Shift + Alt + H'],['Product Summary','Shift + Alt + D'],['Show/Hide Shortcuts','Shift + Alt + Z']].map(([l,k])=>`
+          <div class="flex items-center justify-between py-1.5 border-b border-bord last:border-0">
+            <span class="text-warmgray">${l}</span>
+            <span>${k.split(' + ').map(x=>`<span class="kbd">${x}</span>`).join(' <span class="text-warmgray text-xs mx-0.5">+</span> ')}</span>
+          </div>
+        `).join('')}
+      </div>
+      <p class="text-xs text-warmgray mt-4">To move between items, use your keyboard's up or down arrows.</p>`;
+  } else { p.className='hidden'; }
+}
+document.addEventListener('keydown',(e)=>{
+  if(e.altKey&&e.key==='/'){e.preventDefault();document.getElementById('search-input')?.focus();document.getElementById('search-input')?.select();}
+  if(e.shiftKey&&e.altKey&&e.key.toLowerCase()==='c'){e.preventDefault();navigate('/cart');}
+  if(e.shiftKey&&e.altKey&&e.key.toLowerCase()==='h'){e.preventDefault();navigate('/');}
+  if(e.shiftKey&&e.altKey&&e.key.toLowerCase()==='d'){e.preventDefault();const d=document.getElementById('about-item-section');if(d){d.scrollIntoView({behavior:'smooth',block:'start'});d.classList.add('ring-2','ring-terracotta','ring-offset-2');setTimeout(()=>d.classList.remove('ring-2','ring-terracotta','ring-offset-2'),2000);}}
+  if(e.shiftKey&&e.altKey&&e.key.toLowerCase()==='z'){e.preventDefault();toggleShortcuts();}
+  if(e.key==='Escape'){closeModal();if(shortcutsVisible)toggleShortcuts();}
+});
+
+/* ============================================================
+   ROUTER
+   ============================================================ */
+function getRoute(){const h=window.location.hash.slice(1)||'/';return{full:h,parts:h.split('/').filter(Boolean),path:'/'+h.split('/').filter(Boolean).join('/')};}
+function navigate(p){window.location.hash=p;}
+function router(){
+  const{path,parts}=getRoute();const app=document.getElementById('app');window.scrollTo(0,0);
+  if(path.startsWith('/admin')){if(path==='/admin/login'||!getAuth()){app.innerHTML=renderAdminLogin();return;}app.innerHTML=renderAdminLayout(parts[1]||'dashboard');return;}
+  if(path==='/cart'){app.innerHTML=renderCartPage();return;}
+  if(path==='/contact'){app.innerHTML=renderContactPage();return;}
+  if(parts[0]==='product'&&parts[1]){app.innerHTML=renderProductDetail(parts[1]);return;}
+  const cat=parts[0]&&CATS[parts[0]]?parts[0]:null;
+  app.innerHTML=renderPublicPage(cat);initScrollReveal();
+}
+
+/* ============================================================
+   CART
+   ============================================================ */
+function addToCart(prodId,size,color){
+  const cart=getCart();const prod=getProducts().find(p=>p.id===prodId);if(!prod||prod.status==='sold')return;
+  const existing=cart.find(x=>x.id===prodId&&x.size===size&&x.color===color);
+  if(existing){existing.qty++;}else{cart.push({id:prodId,name:prod.name,brand:prod.brand,price:prod.price,size,color,image:prod.images[0],qty:1});}
+  saveCart(cart);showToast(`Added to cart!`);updateCartCount();
+}
+function removeFromCart(idx){const cart=getCart();cart.splice(idx,1);saveCart(cart);showToast('Removed from cart.','info');router();}
+function updateCartQty(idx,delta){const cart=getCart();cart[idx].qty+=delta;if(cart[idx].qty<1)cart.splice(idx,1);saveCart(cart);router();}
+function updateCartCount(){const cart=getCart();const total=cart.reduce((a,x)=>a+x.qty,0);document.querySelectorAll('#cart-count').forEach(el=>{el.textContent=total;el.style.display=total?'':'none';});}
+function renderCartPage(){
+  const cart=getCart();const s=getSettings();const subtotal=cart.reduce((a,x)=>a+x.price*x.qty,0);
+  return`${renderPublicHeader()}
+  <main id="main-content" class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="font-display font-800 text-2xl md:text-3xl mb-6 anim-fade-up">Shopping Cart</h1>
+    ${!cart.length?`<div class="text-center py-16 anim-fade-up"><div class="w-20 h-20 bg-sand rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-cart-shopping text-2xl text-warmgray"></i></div><h3 class="font-semibold text-lg mb-2">Your cart is empty</h3><p class="text-warmgray text-sm mb-6">Browse our collection and add items you love.</p><a href="#/" class="btn-primary">Continue Shopping</a></div>`:`
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="md:col-span-2 space-y-4">
+        ${cart.map((item,i)=>`
+        <div class="bg-white rounded-xl border border-bord p-4 flex gap-4 anim-fade-up" style="animation-delay:${i*0.05}s">
+          <img src="${item.image}" alt="${item.name}" class="w-20 h-20 rounded-lg object-cover flex-shrink-0">
+          <div class="flex-1 min-w-0">
+            <h3 class="font-semibold text-sm truncate">${item.name}</h3>
+            <p class="text-xs text-warmgray">${item.brand} · ${item.size} · ${item.color}</p>
+            <p class="font-bold text-sm mt-1">${fmtPrice(item.price)}</p>
+            <div class="flex items-center gap-3 mt-2">
+              <div class="flex items-center border border-bord rounded-lg overflow-hidden">
+                <button onclick="updateCartQty(${i},-1)" class="px-2.5 py-1 text-sm hover:bg-sand transition-colors">-</button>
+                <span class="px-3 py-1 text-sm font-medium border-x border-bord">${item.qty}</span>
+                <button onclick="updateCartQty(${i},1)" class="px-2.5 py-1 text-sm hover:bg-sand transition-colors">+</button>
+              </div>
+              <button onclick="removeFromCart(${i})" class="text-xs text-red-500 hover:text-red-600 font-medium">Remove</button>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <div class="bg-white rounded-xl border border-bord p-5 h-fit sticky top-24">
+        <h3 class="font-semibold text-sm mb-3">Order Summary</h3>
+        <div class="flex justify-between text-sm mb-2"><span class="text-warmgray">Subtotal (${cart.reduce((a,x)=>a+x.qty,0)} items)</span><span>${fmtPrice(subtotal)}</span></div>
+        <div class="flex justify-between text-sm mb-2"><span class="text-warmgray">Delivery</span><span class="text-sage font-medium">Free</span></div>
+        <div class="border-t border-bord pt-3 mt-3 flex justify-between font-bold"><span>Total</span><span>${fmtPrice(subtotal)}</span></div>
+        <a href="https://wa.me/${s.phone.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(`Hi! I'd like to order:\n${cart.map(x=>`- ${x.name} (${x.size}, ${x.color}) x${x.qty} = ${fmtPrice(x.price*x.qty)}`).join('\n')}\n\nTotal: ${fmtPrice(subtotal)}`)}" target="_blank" rel="noopener" class="btn-wa w-full justify-center mt-4 py-3 text-base"><i class="fa-brands fa-whatsapp text-lg"></i> Checkout via WhatsApp</a>
+        <a href="#/" class="block text-center text-sm text-warmgray hover:text-charcoal mt-3">Continue Shopping</a>
+      </div>
+    </div>`}
+  </main>${renderPublicFooter()}`;
+}
+
+/* ============================================================
+   PUBLIC HEADER
+   ============================================================ */
+function renderPublicHeader(){
+  const cart=getCart();const cartCount=cart.reduce((a,x)=>a+x.qty,0);
+  return`
+  <header class="sticky top-0 z-30 bg-charcoal text-white">
+    <div class="max-w-[1400px] mx-auto px-4">
+      <div class="flex items-center gap-4 py-2 text-xs border-b border-white/10">
+        <button onclick="toggleDeliverTo()" class="flex items-center gap-1 text-white/70 hover:text-white transition-colors">
+          <i class="fa-solid fa-location-dot"></i><span id="deliver-text">Deliver to Pakistan</span><i class="fa-solid fa-caret-down text-[10px]"></i>
+        </button>
+        <span class="text-white/30 hidden sm:inline">|</span>
+        <span class="text-white/50 hidden sm:inline">Today's Deals · Gift Cards · Sell</span>
+      </div>
+      <div class="flex items-center gap-3 py-2.5">
+        <a href="#/" class="flex items-center gap-2 flex-shrink-0 mr-2">
+          <div class="w-8 h-8 bg-terracotta rounded-lg flex items-center justify-center"><i class="fa-solid fa-scissors text-white text-xs"></i></div>
+          <span class="font-display font-800 text-lg hidden sm:inline">ThreadTales</span>
+        </a>
+        <div class="flex-1 max-w-xl relative">
+          <div class="flex rounded-lg overflow-hidden border border-white/20 focus-within:border-terracotta transition-colors">
+            <input type="text" id="search-input" placeholder="Search ThreadTales" class="flex-1 px-3 py-2 bg-white/5 text-white text-sm outline-none placeholder:text-white/40 font-sans" oninput="handleSearch(this.value)" aria-label="Search products">
+            <button class="px-3 bg-amber hover:bg-amber-dark transition-colors" onclick="document.getElementById('search-input')?.focus()"><i class="fa-solid fa-magnifying-glass text-charcoal text-sm"></i></button>
+          </div>
+        </div>
+        <a href="#/admin/login" class="text-white/60 hover:text-white text-xs hidden md:block transition-colors"><i class="fa-solid fa-lock mr-1"></i>Admin</a>
+        <a href="#/cart" class="flex items-center gap-2 text-white/80 hover:text-white transition-colors relative">
+          <i class="fa-solid fa-cart-shopping"></i><span class="text-xs hidden sm:inline">Cart</span>
+          <span id="cart-count" class="absolute -top-1.5 -right-2.5 bg-amber text-charcoal text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center" style="${cartCount?'':'display:none'}">${cartCount}</span>
+        </a>
+        <button onclick="toggleMobileMenu()" class="md:hidden text-white/80 p-1" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+      </div>
+    </div>
+    <nav class="border-t border-white/10 hidden md:block">
+      <div class="max-w-[1400px] mx-auto px-4 flex items-center gap-1 overflow-x-auto" style="scrollbar-width:none">
+        <button onclick="filterCategory(null);navigate('/')" class="px-3 py-2 text-xs text-white/70 hover:text-white transition-colors whitespace-nowrap">All</button>
+        ${Object.entries(CATS).map(([k,v])=>`<button onclick="filterCategory('${k}');navigate('/${k}')" class="px-3 py-2 text-xs text-white/70 hover:text-white transition-colors whitespace-nowrap">${v.label}</button>`).join('')}
+        <button onclick="navigate('/contact')" class="px-3 py-2 text-xs text-white/70 hover:text-white transition-colors whitespace-nowrap">Contact</button>
+      </div>
+    </nav>
+    <div id="mobile-menu" class="hidden md:hidden border-t border-white/10 bg-charcoal">
+      <div class="px-4 py-2 flex flex-col gap-0.5">
+        ${Object.entries(CATS).map(([k,v])=>`<a href="#/${k}" onclick="closeMobileMenu()" class="px-3 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors">${v.label}</a>`).join('')}
+        <a href="#/contact" onclick="closeMobileMenu()" class="px-3 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors">Contact</a>
+        <a href="#/admin/login" onclick="closeMobileMenu()" class="px-3 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors">Admin</a>
+      </div>
+    </div>
+  </header>`;
+}
+
+/* ============================================================
+   PRODUCT DETAIL PAGE (Amazon-style)
+   ============================================================ */
+function renderProductDetail(prodId){
+  const prod=getProducts().find(p=>p.id===prodId);
+  if(!prod)return`${renderPublicHeader()}<main class="text-center py-20"><h2 class="font-display font-800 text-2xl">Product not found</h2><a href="#/" class="btn-primary mt-4 inline-block">Back to Store</a></main>`;
+  const isSold=prod.status==='sold';
+  const reviews=genReviews(prodId,prod.reviewCount);
+  const rating5=reviews.filter(r=>r.rating===5).length;const rating4=reviews.filter(r=>r.rating===4).length;const rating3=reviews.filter(r=>r.rating===3).length;
+  const rating2=reviews.filter(r=>r.rating===2).length;const rating1=reviews.filter(r=>r.rating===1).length;
+  const totalReviews=reviews.length;
+  const similar=getProducts().filter(p=>p.category===prod.category&&p.id!==prod.id).slice(0,12);
+  const alsoViewed=getProducts().filter(p=>p.id!==prod.id).sort(()=>Math.random()-.5).slice(0,12);
+  const discount=prod.originalPrice?Math.round((1-prod.price/prod.originalPrice)*100):0;
+
+  return`${renderPublicHeader()}
+  <main id="main-content" class="max-w-[1400px] mx-auto px-4 py-4 md:py-6">
+    <!-- Breadcrumb -->
+    <nav class="text-xs text-warmgray mb-4 anim-fade-up flex flex-wrap items-center gap-1">
+      <a href="#/" class="hover:text-terracotta transition-colors">Home</a><i class="fa-solid fa-chevron-right text-[8px] text-bord"></i>
+      <a href="#/${prod.category}" class="hover:text-terracotta transition-colors">${CATS[prod.category]?.label}</a><i class="fa-solid fa-chevron-right text-[8px] text-bord"></i>
+      <span class="text-charcoal">${prod.subcategory}</span>
+    </nav>
+
+    <!-- Main Product Section -->
+    <div class="grid lg:grid-cols-12 gap-6 lg:gap-8">
+      <!-- Left: Images -->
+      <div class="lg:col-span-5 anim-fade-up">
+        <div class="sticky top-32">
+          <img id="main-product-img" src="${prod.images[0]}" alt="${prod.name}" class="detail-img-main mb-3" onclick="zoomImage('${prod.images[0]}')">
+          <div class="flex gap-2 overflow-x-auto pb-1" id="thumb-row">
+            ${prod.images.map((img,i)=>`<img src="${img}" alt="View ${i+1}" class="detail-thumb ${i===0?'active':''}" onclick="switchImage('${img}',this)" loading="lazy">`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Info -->
+      <div class="lg:col-span-7">
+        <div class="anim-fade-up stagger-1">
+          <p class="text-xs text-warmgray mb-1">Visit the <span class="text-terracotta font-semibold cursor-pointer">${prod.brand}</span> Store</p>
+          <h1 class="font-display font-800 text-xl md:text-2xl leading-snug mb-2">${prod.brand} ${prod.name}</h1>
+          <div class="flex items-center gap-2 mb-3">
+            ${starsHTML(prod.rating)}
+            <span class="text-sm text-terracotta font-semibold">${prod.rating}</span>
+            <span class="text-xs text-warmgray">(${prod.reviewCount} global ratings)</span>
+          </div>
+        </div>
+
+        <div class="bg-sand/50 rounded-xl p-4 mb-4 anim-fade-up stagger-2">
+          <div class="flex items-baseline gap-2 flex-wrap">
+            ${prod.originalPrice?`<span class="text-warmgray line-through text-sm">PKR ${prod.originalPrice.toLocaleString('en-PK')}</span><span class="text-xs font-bold text-terracotta bg-terracotta/10 px-2 py-0.5 rounded">${discount}% off</span>`:''}
+            <span class="text-2xl font-bold">${fmtPrice(prod.price)}</span>
+          </div>
+          ${isSold?'<span class="inline-block mt-1 text-sm font-bold text-charcoal bg-charcoal/10 px-3 py-1 rounded-lg">Sold Out</span>':'<p class="text-xs text-sage font-medium mt-1"><i class="fa-solid fa-circle-check mr-1"></i>In Stock — Pre-loved item</p>'}
+        </div>
+
+        <!-- Condition -->
+        <div class="flex items-center gap-3 mb-4 text-sm anim-fade-up stagger-2">
+          <span class="text-warmgray">Condition:</span>
+          <span class="font-semibold ${prod.condition==='Excellent'?'text-sage':prod.condition==='Good'?'text-amber':'text-warmgray'}">${prod.condition}</span>
+        </div>
+
+        <!-- Color Selector -->
+        <div class="mb-4 anim-fade-up stagger-3">
+          <p class="text-sm font-medium mb-2">Color: <span id="selected-color-name" class="font-normal text-warmgray">${prod.colors[0]}</span></p>
+          <div class="flex gap-2 flex-wrap">
+            ${prod.colors.map((c,i)=>`<button class="color-swatch ${i===0?'selected':''}" style="background:${COLOR_MAP[c]||'#ccc'}" title="${c}" onclick="selectColor(this,'${c}')"></button>`).join('')}
+          </div>
+        </div>
+
+        <!-- Size Selector -->
+        <div class="mb-5 anim-fade-up stagger-3">
+          <div class="flex items-center gap-2 mb-2">
+            <p class="text-sm font-medium">Size: <span id="selected-size-name" class="font-normal text-warmgray">${prod.sizes[0]}</span></p>
+            <button onclick="showSizeChart()" class="text-xs text-terracotta underline">Size Chart</button>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            ${prod.sizes.map((s,i)=>`<button class="size-btn ${i===0?'selected':''}" onclick="selectSize(this,'${s}')">${s}</button>`).join('')}
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3 mb-5 anim-fade-up stagger-4">
+          ${isSold?'':`<button onclick="addToCartFromDetail('${prod.id}')" class="btn-cart flex items-center gap-2"><i class="fa-solid fa-cart-plus"></i> Add to Cart</button>
+          <a href="${waUrl(prod,prod.sizes[0],prod.colors[0])}" target="_blank" rel="noopener" id="wa-buy-btn" class="btn-buy flex items-center gap-2"><i class="fa-brands fa-whatsapp"></i> Buy Now</a>`}
+        </div>
+
+        <!-- Deliver to -->
+        <div class="flex items-center gap-2 text-sm text-warmgray mb-5 anim-fade-up stagger-4">
+          <i class="fa-solid fa-truck"></i><span>Deliver to <strong class="text-charcoal">Pakistan</strong></span>
+        </div>
+
+        <hr class="border-bord mb-5">
+
+        <!-- About this item -->
+        <div id="about-item-section" class="mb-6 anim-fade-up stagger-5">
+          <h2 class="font-bold text-base mb-3">About this item</h2>
+          <ul class="list-disc list-outside pl-5 space-y-1.5 text-sm text-charcoal/80 leading-relaxed">
+            <li><span class="font-semibold">Condition:</span> ${prod.condition} — pre-loved item with care</li>
+            <li><span class="font-semibold">Fabric:</span> ${prod.fabricType}</li>
+            <li><span class="font-semibold">Care:</span> ${prod.careInstructions}</li>
+            <li><span class="font-semibold">Brand:</span> ${prod.brand}</li>
+            <li>${prod.description.split('.').slice(1,3).join('.').trim()}</li>
+            <li>This is a one-of-a-kind thrift find. Only one available — once it's gone, it's gone.</li>
+          </ul>
+        </div>
+
+        <!-- Product Details Table -->
+        <div class="mb-6 anim-fade-up">
+          <h2 class="font-bold text-base mb-3">Product details</h2>
+          <div class="bg-sand/30 rounded-lg overflow-hidden">
+            <table class="w-full text-sm">
+              <tr class="border-b border-bord"><td class="px-4 py-2.5 text-warmgray w-40 font-medium">Fabric Type</td><td class="px-4 py-2.5">${prod.fabricType}</td></tr>
+              <tr class="border-b border-bord"><td class="px-4 py-2.5 text-warmgray font-medium">Care Instructions</td><td class="px-4 py-2.5">${prod.careInstructions}</td></tr>
+              <tr class="border-b border-bord"><td class="px-4 py-2.5 text-warmgray font-medium">Origin</td><td class="px-4 py-2.5">Pre-loved / Thrifted</td></tr>
+              <tr class="border-b border-bord"><td class="px-4 py-2.5 text-warmgray font-medium">Brand</td><td class="px-4 py-2.5">${prod.brand}</td></tr>
+              <tr class="border-b border-bord"><td class="px-4 py-2.5 text-warmgray font-medium">Category</td><td class="px-4 py-2.5">${CATS[prod.category]?.label} › ${prod.subcategory}</td></tr>
+              <tr><td class="px-4 py-2.5 text-warmgray font-medium">Condition</td><td class="px-4 py-2.5">${prod.condition}</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top highlights -->
+        <div class="mb-6">
+          <h3 class="font-bold text-sm mb-2">Top highlights</h3>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="flex items-start gap-2"><i class="fa-solid fa-check text-sage text-xs mt-1"></i><span>Fabric: ${prod.fabricType}</span></div>
+            <div class="flex items-start gap-2"><i class="fa-solid fa-check text-sage text-xs mt-1"></i><span>Care: ${prod.careInstructions}</span></div>
+            <div class="flex items-start gap-2"><i class="fa-solid fa-check text-sage text-xs mt-1"></i><span>Condition: ${prod.condition}</span></div>
+            <div class="flex items-start gap-2"><i class="fa-solid fa-check text-sage text-xs mt-1"></i><span>${discount?discount+'% off original price':'Great thrift value'}</span></div>
+          </div>
+        </div>
+
+        <hr class="border-bord mb-6">
+
+        <!-- Customer Reviews Section -->
+        <div class="mb-8">
+          <h2 class="font-bold text-base mb-4">Customer reviews</h2>
+          <div class="flex flex-col sm:flex-row gap-6 mb-6">
+            <!-- Rating breakdown -->
+            <div class="w-full sm:w-48 flex-shrink-0">
+              <div class="text-center mb-3">
+                <span class="text-3xl font-bold">${prod.rating}</span>
+                <div class="mt-1">${starsHTML(prod.rating,'text-base')}</div>
+                <p class="text-xs text-warmgray mt-1">${prod.reviewCount} global ratings</p>
+              </div>
+              <div class="space-y-1.5">
+                ${[[5,rating5],[4,rating4],[3,rating3],[2,rating2],[1,rating1]].reverse().map(([star,count])=>`
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3">${star}</span><i class="fa-solid fa-star star text-[10px]"></i>
+                    <div class="flex-1 bg-bord rounded-full h-2.5"><div class="rating-bar" style="width:${totalReviews?Math.round(count/totalReviews*100):0}%"></div></div>
+                    <span class="text-warmgray w-6 text-right">${count}</span>
+                  </div>`).join('')}
+              </div>
+            </div>
+            <!-- Review cards -->
+            <div class="flex-1 space-y-4">
+              <div class="flex items-center gap-2 mb-2">
+                <button class="text-xs font-semibold text-charcoal border border-bord rounded-lg px-3 py-1.5 bg-sand">Top Reviews</button>
+                <button class="text-xs font-medium text-warmgray hover:text-charcoal px-3 py-1.5">Most Recent</button>
+              </div>
+              ${reviews.map((r,i)=>`
+              <div class="border border-bord rounded-lg p-4 ${i===0?'bg-sand/30':''}">
+                <div class="flex items-center gap-2 mb-2">
+                  ${starsHTML(r.rating,'text-xs')}
+                  <span class="text-xs text-warmgray">${r.name}</span>
+                  ${r.verified?'<span class="text-[10px] font-semibold text-sage bg-sage/10 px-1.5 py-0.5 rounded">Verified Purchase</span>':''}
+                </div>
+                <p class="text-sm leading-relaxed">${r.text}</p>
+                <p class="text-xs text-warmgray mt-2">Reviewed in Pakistan on ${r.date}</p>
+                <div class="flex items-center gap-4 mt-2 text-xs text-warmgray">
+                  <button class="hover:text-charcoal flex items-center gap-1" onclick="this.innerHTML='<i class=\\'fa-solid fa-thumbs-up\\'></i> ${r.helpful+1} people found this helpful';this.disabled=true"><i class="fa-regular fa-thumbs-up"></i> ${r.helpful} found this helpful</button>
+                  <button class="hover:text-charcoal">Report</button>
+                </div>
+              </div>`).join('')}
+              <button class="text-sm text-terracotta font-semibold hover:underline">See more reviews</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customers who viewed this item also viewed -->
+    <section class="mb-10 reveal">
+      <h2 class="font-bold text-base mb-4">Customers who viewed this item also viewed</h2>
+      <div class="hscroll pb-2">
+        ${alsoViewed.map(p=>`
+        <a href="#/product/${p.id}" class="w-36 md:w-44 group">
+          <div class="aspect-square rounded-lg overflow-hidden border border-bord mb-2"><img src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy"></div>
+          <p class="text-xs text-charcoal font-medium line-clamp-2 leading-snug">${p.brand} ${p.name}</p>
+          <div class="flex items-center gap-1 mt-0.5">${starsHTML(p.rating,'text-[10px]')}<span class="text-[10px] text-warmgray">(${p.reviewCount})</span></div>
+          <p class="text-xs font-bold mt-0.5">${fmtPrice(p.price)}</p>
+        </a>`).join('')}
+      </div>
+    </section>
+
+    <!-- Similar items -->
+    <section class="mb-10 reveal">
+      <h2 class="font-bold text-base mb-4">Similar items from ${CATS[prod.category]?.label}</h2>
+      <div class="hscroll pb-2">
+        ${similar.map(p=>`
+        <a href="#/product/${p.id}" class="w-36 md:w-44 group">
+          <div class="aspect-square rounded-lg overflow-hidden border border-bord mb-2 relative">
+            <img src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy">
+            ${p.status==='sold'?'<div class="sold-overlay rounded-lg"><span class="sold-badge text-[10px]">Sold</span></div>':''}
+          </div>
+          <p class="text-xs text-charcoal font-medium line-clamp-2 leading-snug">${p.brand} ${p.name}</p>
+          <p class="text-xs font-bold mt-0.5">${fmtPrice(p.price)}</p>
+        </a>`).join('')}
+      </div>
+    </section>
+
+    <!-- Product Description -->
+    <section class="mb-10 bg-white rounded-xl border border-bord p-5 md:p-6 reveal">
+      <h2 class="font-bold text-base mb-3">Product Description</h2>
+      <p class="text-sm leading-relaxed text-charcoal/80">${prod.description}</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        ${[prod.name,prod.subcategory,prod.brand,'thrift','pre-loved',`PKR ${prod.price}`].map(t=>`<span class="text-xs bg-sand px-2 py-1 rounded text-warmgray">${t}</span>`).join('')}
+      </div>
+    </section>
+  </main>
+  ${renderPublicFooter()}`;
+}
+
+/* Detail page JS helpers */
+let selectedSize='', selectedColor='';
+function selectSize(el,size){document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('selected'));el.classList.add('selected');selectedSize=size;document.getElementById('selected-size-name').textContent=size;updateBuyLink();}
+function selectColor(el,color){document.querySelectorAll('.color-swatch').forEach(b=>b.classList.remove('selected'));el.classList.add('selected');selectedColor=color;document.getElementById('selected-color-name').textContent=color;updateBuyLink();}
+function updateBuyLink(){const{id}=getRoute().parts;const prod=getProducts().find(p=>p.id===id);if(prod&&document.getElementById('wa-buy-btn')){document.getElementById('wa-buy-btn').href=waUrl(prod,selectedSize||prod.sizes[0],selectedColor||prod.colors[0]);}}
+function switchImage(src,el){document.getElementById('main-product-img').src=src;document.querySelectorAll('.detail-thumb').forEach(t=>t.classList.remove('active'));el.classList.add('active');}
+function addToCartFromDetail(prodId){const prod=getProducts().find(p=>p.id===prodId);addToCart(prodId,selectedSize||prod.sizes[0],selectedColor||prod.colors[0]);}
+function zoomImage(src){openModal(`<div class="p-2"><img src="${src}" alt="Zoomed" class="w-full rounded-xl"><button onclick="closeModal()" class="absolute top-3 right-3 w-9 h-9 bg-white/90 rounded-full flex items-center justify-center shadow-sm hover:bg-white"><i class="fa-solid fa-xmark text-sm"></i></button></div>`);}
+function showSizeChart(){
+  openModal(`
+    <div class="p-6">
+      <h3 class="font-bold text-lg mb-4">Size Chart</h3>
+      <table class="w-full text-sm border-collapse">
+        <tr class="bg-sand"><th class="border border-bord px-3 py-2 text-left">Size</th><th class="border border-bord px-3 py-2">Chest (in)</th><th class="border border-bord px-3 py-2">Waist (in)</th><th class="border border-bord px-3 py-2">Length (in)</th></tr>
+        ${[['S/28',36,28,26],['M/30',38,30,27],['L/32',40,32,28],['XL/34',42,34,29],['XXL/36',44,36,30],['38',40,32,28],['40',42,34,29],['42',44,36,30],['44',46,38,31]].map(([s,c,w,l])=>`<tr><td class="border border-bord px-3 py-2 font-medium">${s}</td><td class="border border-bord px-3 py-2 text-center">${c}</td><td class="border border-bord px-3 py-2 text-center">${w}</td><td class="border border-bord px-3 py-2 text-center">${l}</td></tr>`).join('')}
+      </table>
+      <p class="text-xs text-warmgray mt-3">These are approximate measurements. Pre-loved items may vary slightly.</p>
+    </div>`);
+}
+function toggleDeliverTo(){
+  openModal(`
+    <div class="p-6">
+      <h3 class="font-bold text-lg mb-4">Choose your delivery location</h3>
+      <div class="space-y-2">
+        ${['Pakistan','Karachi','Lahore','Islamabad','Rawalpindi','Faisalabad','Multan','Peshawar'].map((loc,i)=>`
+        <button onclick="document.getElementById('deliver-text').textContent='Deliver to ${loc}';closeModal();showToast('Delivery location updated.','info')" class="w-full text-left px-4 py-3 rounded-lg border border-bord hover:border-terracotta hover:bg-sand/50 transition-colors flex items-center gap-3 ${i===0?'border-terracotta bg-sand/50':''}">
+          <i class="fa-solid fa-location-dot text-terracotta"></i><span class="text-sm font-medium">${loc}</span>
+        </button>`).join('')}
+      </div>
+    </div>`);
+}
+
+/* ============================================================
+   PUBLIC PAGE (listing)
+   ============================================================ */
+function renderPublicHeader2(){return renderPublicHeader();}
+function renderHero(){
+  return`
+  <section class="hero-bg py-16 md:py-28 relative">
+    <div class="max-w-[1400px] mx-auto px-4 relative z-10">
+      <p class="anim-fade-up text-terracotta font-semibold text-sm tracking-widest uppercase mb-3">Curated Pre-Loved Fashion</p>
+      <h1 class="anim-fade-up stagger-1 font-display font-900 text-3xl sm:text-5xl md:text-6xl leading-[1.05] max-w-2xl mb-5">Every piece has a <span class="text-terracotta italic">story</span>.</h1>
+      <p class="anim-fade-up stagger-2 text-warmgray text-base md:text-lg max-w-md mb-7 leading-relaxed">One-of-a-kind finds, handpicked and priced right. Shop sustainable without compromising style.</p>
+      <div class="anim-fade-up stagger-3 flex flex-wrap gap-3">
+        <a href="#/shirts" class="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm">Browse Collection <i class="fa-solid fa-arrow-right text-xs"></i></a>
+        <a href="#/contact" class="btn-secondary inline-flex items-center gap-2 px-5 py-2.5 text-sm">Contact Us</a>
+      </div>
+    </div>
+  </section>`;
+}
+function renderCategoryBar(active){
+  return`<div class="sticky top-[88px] md:top-[108px] z-20 bg-cream/90 backdrop-blur-md border-b border-bord py-2.5">
+    <div class="max-w-[1400px] mx-auto px-4"><div class="flex gap-2 overflow-x-auto pb-0.5" style="-ms-overflow-style:none;scrollbar-width:none">
+      <button onclick="filterCategory(null);navigate('/')" class="cat-pill px-4 py-1.5 rounded-full text-xs font-medium ${!active?'active':''}">All Items</button>
+      ${Object.entries(CATS).map(([k,v])=>`<button onclick="filterCategory('${k}');navigate('/${k}')" class="cat-pill px-4 py-1.5 rounded-full text-xs font-medium ${active===k?'active':''}">${v.label}</button>`).join('')}
+    </div></div>
+  </div>`;
+}
+function renderSearchBar(){return`<div class="max-w-[1400px] mx-auto px-4 mt-5"><div class="relative max-w-md"><i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-warmgray text-xs"></i><input type="text" id="search-input" placeholder="Search shirts, boots, accessories..." class="input-field pl-9 pr-4 py-2 text-sm" oninput="handleSearch(this.value)" aria-label="Search products"></div></div>`;}
+function renderProductCard(p,idx){
+  const isSold=p.status==='sold';
+  return`<a href="#/product/${p.id}" class="product-card bg-white rounded-xl overflow-hidden border border-bord reveal group block relative" style="transition-delay:${Math.min(idx*0.04,0.3)}s">
+    <div class="aspect-square overflow-hidden relative">
+      <img src="${p.images[0]}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy">
+      ${isSold?'<div class="sold-overlay rounded-t-xl"><span class="sold-badge text-[10px]">Sold</span></div>':''}
+      <div class="absolute top-2 left-2"><span class="bg-white/90 backdrop-blur-sm text-charcoal text-[10px] font-semibold px-2 py-0.5 rounded-full">${p.subcategory}</span></div>
+    </div>
+    <div class="p-3">
+      <p class="text-[10px] text-warmgray mb-0.5">${p.brand}</p>
+      <h3 class="font-medium text-xs mb-1.5 leading-snug line-clamp-2 group-hover:text-terracotta transition-colors">${p.name}</h3>
+      <div class="flex items-center gap-1 mb-1">${starsHTML(p.rating,'text-[9px]')}<span class="text-[10px] text-warmgray">${p.reviewCount}</span></div>
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-sm">${fmtPrice(p.price)}</span>
+        ${p.originalPrice?`<span class="text-[10px] text-warmgray line-through">PKR ${p.originalPrice.toLocaleString('en-PK')}</span>`:''}
+      </div>
+    </div>
+  </a>`;}
+function renderProductGrid(products){
+  if(!products.length)return`<div class="text-center py-16 anim-fade-up"><div class="w-16 h-16 bg-sand rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-shirt text-xl text-warmgray"></i></div><h3 class="font-semibold text-lg mb-1">No items found</h3><p class="text-warmgray text-sm">Try a different search or category.</p></div>`;
+  const avail=products.filter(p=>p.status==='available');const sold=products.filter(p=>p.status==='sold');
+  let h=`<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">${avail.map((p,i)=>renderProductCard(p,i)).join('')}</div>`;
+  if(sold.length){h+=`<div class="mt-10 mb-1"><h3 class="text-[10px] font-semibold text-warmgray uppercase tracking-widest">Previously Sold</h3></div><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 opacity-50">${sold.map((p,i)=>renderProductCard(p,i)).join('')}</div>`;}
+  return h;
+}
+function renderPublicPage(activeCat){
+  if(getRoute().path==='/contact')return renderContactPage();
+  const prods=getProducts();
+  return`${renderPublicHeader()}
+  ${!activeCat?renderHero():`<section class="py-8 md:py-10 border-b border-bord"><div class="max-w-[1400px] mx-auto px-4"><p class="text-terracotta font-semibold text-xs tracking-widest uppercase mb-2 anim-fade-up">Collection</p><h1 class="font-display font-800 text-2xl md:text-4xl anim-fade-up stagger-1">${CATS[activeCat]?.label||'All Items'}</h1></div></section>`}
+  ${renderCategoryBar(activeCat)}${renderSearchBar()}
+  <section class="py-6 md:py-8"><div class="max-w-[1400px] mx-auto px-4"><div id="product-grid">${renderProductGrid(activeCat?prods.filter(p=>p.category===activeCat):prods)}</div></div></section>
+  ${renderPublicFooter()}`;
+}
+
+/* ============================================================
+   CONTACT PAGE
+   ============================================================ */
+function renderContactPage(){
+  const s=getSettings();
+  return`${renderPublicHeader()}
+  <main id="main-content" class="max-w-2xl mx-auto px-4 py-10">
+    <p class="text-terracotta font-semibold text-xs tracking-widest uppercase mb-2 anim-fade-up">Reach Out</p>
+    <h1 class="font-display font-800 text-2xl md:text-4xl mb-6 anim-fade-up stagger-1">Contact Us</h1>
+    <div class="bg-white rounded-xl border border-bord p-6 anim-fade-up stagger-2">
+      <div class="flex flex-col gap-4">
+        <a href="tel:${s.phone}" class="flex items-start gap-4 p-4 rounded-xl hover:bg-sand transition-colors group"><div class="w-11 h-11 bg-terracotta/10 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-phone text-terracotta text-sm"></i></div><div><p class="text-[10px] text-warmgray font-medium uppercase tracking-wider mb-0.5">Phone</p><p class="font-semibold text-sm">${s.phone}</p></div></a>
+        <a href="mailto:${s.email}" class="flex items-start gap-4 p-4 rounded-xl hover:bg-sand transition-colors group"><div class="w-11 h-11 bg-terracotta/10 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-envelope text-terracotta text-sm"></i></div><div><p class="text-[10px] text-warmgray font-medium uppercase tracking-wider mb-0.5">Email</p><p class="font-semibold text-sm">${s.email}</p></div></a>
+        <div class="flex items-start gap-4 p-4 rounded-xl"><div class="w-11 h-11 bg-terracotta/10 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-location-dot text-terracotta text-sm"></i></div><div><p class="text-[10px] text-warmgray font-medium uppercase tracking-wider mb-0.5">Visit Us</p><p class="font-semibold text-sm">${s.address}</p></div></div>
+      </div>
+      <div class="mt-6 pt-5 border-t border-bord"><a href="https://wa.me/${s.phone.replace(/[^0-9]/g,'')}" target="_blank" rel="noopener" class="btn-wa text-sm py-2.5"><i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp</a></div>
+    </div>
+  </main>${renderPublicFooter()}`;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+function renderPublicFooter(){
+  const s=getSettings();
+  return`<footer class="bg-charcoal text-white/60 mt-12">
+    <div class="max-w-[1400px] mx-auto px-4 py-10">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+        <div><div class="flex items-center gap-2 mb-3"><div class="w-7 h-7 bg-terracotta rounded-lg flex items-center justify-center"><i class="fa-solid fa-scissors text-white text-[10px]"></i></div><span class="font-display font-800 text-white text-sm">ThreadTales</span></div><p class="text-xs leading-relaxed">Pre-loved fashion, curated with care. Every piece has a story.</p></div>
+        <div><h4 class="font-semibold text-white text-xs uppercase tracking-wider mb-3">Categories</h4><div class="flex flex-col gap-1.5">${Object.entries(CATS).map(([k,v])=>`<a href="#/${k}" class="text-xs hover:text-white transition-colors">${v.label}</a>`).join('')}</div></div>
+        <div><h4 class="font-semibold text-white text-xs uppercase tracking-wider mb-3">Quick Links</h4><div class="flex flex-col gap-1.5"><a href="#/" class="text-xs hover:text-white transition-colors">Home</a><a href="#/contact" class="text-xs hover:text-white transition-colors">Contact</a><a href="#/cart" class="text-xs hover:text-white transition-colors">Cart</a></div></div>
+        <div><h4 class="font-semibold text-white text-xs uppercase tracking-wider mb-3">Get in Touch</h4><div class="flex flex-col gap-2 text-xs"><a href="tel:${s.phone}" class="hover:text-white transition-colors"><i class="fa-solid fa-phone w-3"></i> ${s.phone}</a><a href="mailto:${s.email}" class="hover:text-white transition-colors"><i class="fa-solid fa-envelope w-3"></i> ${s.email}</a><span><i class="fa-solid fa-location-dot w-3"></i> ${s.address}</span></div></div>
+      </div>
+      <div class="border-t border-white/10 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p class="text-[10px] text-white/30">ThreadTales Thrift Store. All rights reserved.</p>
+        <button onclick="toggleShortcuts()" class="text-[10px] text-white/30 hover:text-white/50 transition-colors flex items-center gap-1"><i class="fa-regular fa-keyboard"></i> Keyboard Shortcuts</button>
+      </div>
+    </div>
+  </footer>`;
+}
+
+/* ============================================================
+   SEARCH & FILTER
+   ============================================================ */
+let currentSearch='',currentFilterCat=null;
+function filterCategory(cat){currentFilterCat=cat;currentSearch='';const si=document.getElementById('search-input');if(si)si.value='';refreshGrid();}
+function handleSearch(q){currentSearch=q.toLowerCase().trim();currentFilterCat=null;refreshGrid();}
+function refreshGrid(){const grid=document.getElementById('product-grid');if(!grid)return;let prods=getProducts();if(currentFilterCat)prods=prods.filter(p=>p.category===currentFilterCat);if(currentSearch)prods=prods.filter(p=>p.name.toLowerCase().includes(currentSearch)||p.description.toLowerCase().includes(currentSearch)||p.subcategory.toLowerCase().includes(currentSearch)||p.brand.toLowerCase().includes(currentSearch)||(CATS[p.category]?.label||'').toLowerCase().includes(currentSearch));grid.innerHTML=renderProductGrid(prods);initScrollReveal();}
+
+/* ============================================================
+   ADMIN
+   ============================================================ */
+function renderAdminLogin(){return`<div class="min-h-screen bg-cream flex items-center justify-center p-4"><div class="bg-white rounded-2xl border border-bord shadow-sm p-7 w-full max-w-sm anim-scale-in"><div class="text-center mb-7"><div class="w-12 h-12 bg-charcoal rounded-xl flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-lock text-white"></i></div><h1 class="font-display font-800 text-xl">Admin Login</h1><p class="text-warmgray text-xs mt-1">ThreadTales Dashboard</p></div><form onsubmit="handleLogin(event)"><label class="block text-sm font-medium mb-1">Password</label><input type="password" id="login-pwd" class="input-field mb-3" placeholder="Enter admin password" required autofocus><p id="login-error" class="text-red-500 text-xs mb-2 hidden">Incorrect password.</p><button type="submit" class="btn-primary w-full py-2.5">Sign In</button></form><a href="#/" class="block text-center text-sm text-warmgray hover:text-charcoal mt-3">Back to Store</a></div></div>`;}
+function renderAdminLayout(page){
+  const pages=[{key:'dashboard',label:'Dashboard',icon:'fa-grid-2'},{key:'add-product',label:'Add Product',icon:'fa-plus'},{key:'settings',label:'Settings',icon:'fa-gear'}];
+  const a=page||'dashboard';
+  let c='';if(a==='dashboard')c=renderAdminDashboard();else if(a==='add-product')c=renderAdminAddProduct();else if(a==='settings')c=renderAdminSettings();else c=renderAdminDashboard();
+  return`<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeAdminSidebar()"></div><div class="flex min-h-screen">
+    <aside class="admin-sidebar fixed md:sticky top-0 flex-shrink-0 p-4 flex flex-col" id="admin-sidebar">
+      <div class="flex items-center gap-2 mb-6"><div class="w-7 h-7 bg-terracotta rounded-lg flex items-center justify-center"><i class="fa-solid fa-scissors text-white text-[10px]"></i></div><span class="font-display font-800 text-white text-sm">ThreadTales</span></div>
+      <nav class="flex flex-col gap-0.5 flex-1">${pages.map(p=>`<a href="#/admin/${p.key}" class="flex items-center gap-2.5 px-3 py-2 text-sm ${a===p.key?'active':'text-white/50'}" onclick="closeAdminSidebar()"><i class="fa-solid ${p.icon} w-4 text-center text-xs"></i>${p.label}</a>`).join('')}</nav>
+      <div class="border-t border-white/10 pt-3 flex flex-col gap-0.5"><a href="#/" class="flex items-center gap-2.5 px-3 py-2 text-sm text-white/50"><i class="fa-solid fa-arrow-left w-4 text-center text-xs"></i>Store</a><button onclick="handleLogout()" class="flex items-center gap-2.5 px-3 py-2 text-sm text-white/30 hover:text-white/70 text-left"><i class="fa-solid fa-right-from-bracket w-4 text-center text-xs"></i>Sign Out</button></div>
+    </aside>
+    <div class="flex-1 flex flex-col min-w-0">
+      <header class="sticky top-0 z-20 bg-cream/80 backdrop-blur-lg border-b border-bord px-4 py-2.5 flex items-center gap-3"><button onclick="toggleAdminSidebar()" class="md:hidden p-1.5 hover:bg-sand rounded-lg" aria-label="Menu"><i class="fa-solid fa-bars text-xs"></i></button><h2 class="font-semibold text-sm">${pages.find(p=>p.key===a)?.label}</h2></header>
+      <main class="flex-1 p-4 sm:p-6 anim-fade-in">${c}</main>
+    </div></div>`;
+}
+function renderAdminDashboard(){
+  const prods=getProducts();const avail=prods.filter(p=>p.status==='available').length;const sold=prods.filter(p=>p.status==='sold').length;const val=prods.filter(p=>p.status==='available').reduce((a,p)=>a+p.price,0);
+  return`<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-lg border border-bord p-4"><p class="text-[10px] text-warmgray font-medium uppercase tracking-wider mb-0.5">Total</p><p class="text-xl font-bold">${prods.length}</p></div>
+    <div class="bg-white rounded-lg border border-bord p-4"><p class="text-[10px] text-warmgray font-medium uppercase tracking-wider mb-0.5">Available</p><p class="text-xl font-bold text-sage">${avail}</p></div>
+    <div class="bg-white rounded-lg border border-bord p-4"><p class="text-[10px] text-warmgray font-medium uppercase tracking-wider mb-0.5">Sold</p><p class="text-xl font-bold text-warmgray">${sold}</p></div>
+    <div class="bg-white rounded-lg border border-bord p-4"><p class="text-[10px] text-warmgray font-medium uppercase tracking-wider mb-0.5">Value</p><p class="text-xl font-bold text-terracotta">${fmtPrice(val)}</p></div>
+  </div>
+  <div class="bg-white rounded-lg border border-bord overflow-hidden">
+    <div class="px-4 py-3 border-b border-bord flex items-center justify-between"><h3 class="font-semibold text-sm">Products</h3><a href="#/admin/add-product" class="btn-primary text-xs px-3 py-1.5"><i class="fa-solid fa-plus mr-1"></i>Add</a></div>
+    <div class="overflow-x-auto"><table class="admin-table"><thead><tr><th>Product</th><th class="hidden sm:table-cell">Cat</th><th class="hidden md:table-cell">Price</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${prods.slice(0,50).map(p=>`<tr><td><div class="flex items-center gap-2"><img src="${p.images[0]}" alt="${p.name}" class="w-8 h-8 rounded object-cover flex-shrink-0"><span class="font-medium text-xs truncate max-w-[140px]">${p.name}</span></div></td><td class="hidden sm:table-cell"><span class="text-[10px] bg-sand px-1.5 py-0.5 rounded">${CATS[p.category]?.label||p.category}</span></td><td class="hidden md:table-cell font-semibold text-xs">${fmtPrice(p.price)}</td><td><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${p.status==='available'?'bg-sage/10 text-sage':'bg-charcoal/10 text-charcoal'}">${p.status}</span></td><td><div class="flex gap-1">${p.status==='available'?`<button onclick="markSold('${p.id}')" class="text-[10px] font-semibold text-sage bg-sage/10 px-2 py-1 rounded hover:bg-sage/20">Sold</button>`:`<button onclick="markAvail('${p.id}')" class="text-[10px] font-semibold text-warmgray bg-sand px-2 py-1 rounded hover:bg-bord">Restore</button>`}<button onclick="deleteProd('${p.id}')" class="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-1 rounded hover:bg-red-100">Del</button></div></td></tr>`).join('')}</tbody></table></div>
+    ${prods.length>50?`<p class="text-center text-xs text-warmgray py-3">Showing 50 of ${prods.length}. Use search to find specific items.</p>`:''}
+  </div>`;
+}
+function renderAdminAddProduct(){
+  return`<div class="max-w-lg"><div class="bg-white rounded-lg border border-bord p-5">
+    <form onsubmit="handleAddProduct(event)">
+      <div class="mb-5"><label class="block text-sm font-medium mb-1.5">Image</label><div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)"><div id="upload-placeholder"><i class="fa-solid fa-cloud-arrow-up text-xl text-warmgray mb-1"></i><p class="text-xs text-warmgray">Click or drag image</p></div><div id="upload-preview" class="hidden"></div></div><input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileSelect(this)"></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Name</label><input type="text" id="prod-name" class="input-field" required></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Brand</label><input type="text" id="prod-brand" class="input-field" required></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Price</label><input type="number" id="prod-price" class="input-field" min="1" required></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Original Price (optional)</label><input type="number" id="prod-orig" class="input-field" min="0"></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Description</label><textarea id="prod-desc" class="input-field" rows="2" required></textarea></div>
+      <div class="grid grid-cols-2 gap-3 mb-5"><div><label class="block text-sm font-medium mb-1">Category</label><select id="prod-cat" class="input-field" onchange="updateSubs()" required><option value="">Select...</option>${Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select></div><div><label class="block text-sm font-medium mb-1">Subcategory</label><select id="prod-sub" class="input-field" required><option value="">Select cat first</option></select></div></div>
+      <button type="submit" class="btn-primary w-full py-2.5">Add Product</button>
+    </form></div></div>`;
+}
+function renderAdminSettings(){
+  const s=getSettings();
+  return`<div class="max-w-lg">
+    <div class="bg-white rounded-lg border border-bord p-5 mb-5"><h3 class="font-semibold text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-store text-terracotta"></i>Store Info</h3>
+    <form onsubmit="handleSaveSettings(event)">
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Phone</label><input type="tel" id="set-phone" class="input-field" value="${s.phone}" required><p class="text-[10px] text-warmgray mt-0.5">Used for WhatsApp button. Include country code.</p></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Email</label><input type="email" id="set-email" class="input-field" value="${s.email}" required></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Address</label><textarea id="set-address" class="input-field" rows="2" required>${s.address}</textarea></div>
+      <div class="mb-5"><label class="block text-sm font-medium mb-1">Currency</label><input type="text" id="set-currency" class="input-field" value="${s.currency}" maxlength="5" required></div>
+      <button type="submit" class="btn-primary w-full py-2.5">Save</button>
+    </form></div>
+    <div class="bg-white rounded-lg border border-bord p-5"><h3 class="font-semibold text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-key text-warmgray"></i>Change Password</h3>
+    <form onsubmit="handleChangePwd(event)">
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">Current</label><input type="password" id="pwd-old" class="input-field" required></div>
+      <div class="mb-3"><label class="block text-sm font-medium mb-1">New</label><input type="password" id="pwd-new" class="input-field" minlength="6" required></div>
+      <div class="mb-5"><label class="block text-sm font-medium mb-1">Confirm</label><input type="password" id="pwd-confirm" class="input-field" minlength="6" required></div>
+      <button type="submit" class="btn-secondary w-full py-2.5">Update Password</button>
+    </form></div></div>`;
+}
+
+/* ============================================================
+   ADMIN EVENT HANDLERS
+   ============================================================ */
+async function handleLogin(e){e.preventDefault();if(await verifyPwd(document.getElementById('login-pwd').value)){setAuth(true);navigate('/admin/dashboard');showToast('Welcome back!');}else{document.getElementById('login-error').classList.remove('hidden');document.getElementById('login-pwd').value='';}}
+function handleLogout(){setAuth(false);navigate('/');showToast('Signed out.','info');}
+let currentImgData=null;
+function handleFileSelect(input){if(input.files&&input.files[0])processFile(input.files[0]);}
+function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');if(e.dataTransfer.files&&e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}
+async function processFile(file){if(!file.type.startsWith('image/')){showToast('Select an image.','error');return;}if(file.size>5*1024*1024){showToast('Max 5MB.','error');return;}try{currentImgData=await compressImage(file,800,0.7);document.getElementById('upload-placeholder').classList.add('hidden');const pv=document.getElementById('upload-preview');pv.classList.remove('hidden');pv.innerHTML=`<img src="${currentImgData}" class="mx-auto rounded-lg max-h-40 object-cover"><p class="text-[10px] text-warmgray mt-1">Click to change</p>`;}catch(e){showToast('Failed to process image.','error');}}
+function updateSubs(){const cat=document.getElementById('prod-cat').value;const sel=document.getElementById('prod-sub');sel.innerHTML='<option value="">Select...</option>';if(cat&&CATS[cat])CATS[cat].subs.forEach(s=>{sel.innerHTML+=`<option value="${s}">${s}</option>`;});}
+function handleAddProduct(e){e.preventDefault();if(!currentImgData){showToast('Upload an image.','error');return;}const p={id:genId(),name:document.getElementById('prod-name').value.trim(),brand:document.getElementById('prod-brand').value.trim(),price:+document.getElementById('prod-price').value,originalPrice:+document.getElementById('prod-orig').value||0,description:document.getElementById('prod-desc').value.trim(),category:document.getElementById('prod-cat').value,subcategory:document.getElementById('prod-sub').value,images:[currentImgData,currentImgData,currentImgData,currentImgData],sizes:['M','L','XL'],colors:['Default'],fabricType:'Mixed',careInstructions:'Machine Wash',condition:'Good',status:'available',createdAt:Date.now(),rating:+(4+Math.random()).toFixed(1),reviewCount:Math.floor(5+Math.random()*20)};if(!p.name||!p.price||!p.description||!p.category||!p.subcategory){showToast('Fill all fields.','error');return;}try{const prods=getProducts();prods.unshift(p);saveProducts(prods);currentImgData=null;showToast(`"${p.name}" added!`);navigate('/admin/dashboard');}catch(e){showToast('Storage full! Delete old products.','error');}}
+function deleteProd(id){openModal(`<div class="p-6 text-center"><div class="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-trash text-red-500"></i></div><h3 class="font-bold text-lg mb-2">Delete?</h3><p class="text-warmgray text-sm mb-5">This cannot be undone.</p><div class="flex gap-2 justify-center"><button onclick="closeModal()" class="btn-secondary px-5 py-2 text-sm">Cancel</button><button onclick="confirmDel('${id}')" class="btn-danger px-5 py-2">Delete</button></div></div>`);}
+function confirmDel(id){saveProducts(getProducts().filter(p=>p.id!==id));closeModal();showToast('Deleted.','info');router();}
+function markSold(id){const prods=getProducts();const p=prods.find(x=>x.id===id);if(p){p.status='sold';saveProducts(prods);showToast(`"${p.name}" marked sold.`,'info');router();}}
+function markAvail(id){const prods=getProducts();const p=prods.find(x=>x.id===id);if(p){p.status='available';saveProducts(prods);showToast(`"${p.name}" restored.`);router();}}
+function handleSaveSettings(e){e.preventDefault();saveSettings({phone:document.getElementById('set-phone').value.trim(),email:document.getElementById('set-email').value.trim(),address:document.getElementById('set-address').value.trim(),currency:document.getElementById('set-currency').value.trim()||'PKR '});showToast('Settings saved!');}
+async function handleChangePwd(e){e.preventDefault();const o=document.getElementById('pwd-old').value,n=document.getElementById('pwd-new').value,c=document.getElementById('pwd-confirm').value;if(n!==c){showToast('Passwords don\'t match.','error');return;}if(n.length<6){showToast('Min 6 characters.','error');return;}if(await changePwd(o,n)){showToast('Password updated!');document.getElementById('pwd-old').value='';document.getElementById('pwd-new').value='';document.getElementById('pwd-confirm').value='';}else{showToast('Wrong current password.','error');}}
+
+/* Mobile menus */
+function toggleMobileMenu(){document.getElementById('mobile-menu')?.classList.toggle('hidden');}
+function closeMobileMenu(){const m=document.getElementById('mobile-menu');if(m)m.classList.add('hidden');}
+function toggleAdminSidebar(){document.getElementById('admin-sidebar')?.classList.toggle('open');document.getElementById('sidebar-overlay')?.classList.toggle('show');}
+function closeAdminSidebar(){document.getElementById('admin-sidebar')?.classList.remove('open');document.getElementById('sidebar-overlay')?.classList.remove('show');}
+
+/* Scroll reveal */
+function initScrollReveal(){const obs=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});},{threshold:0.06,rootMargin:'0px 0px -30px 0px'});document.querySelectorAll('.reveal:not(.visible)').forEach(el=>obs.observe(el));}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(async()=>{if(!localStorage.getItem('tt_pwd_hash'))localStorage.setItem('tt_pwd_hash',await hashPwd(DEFAULT_PWD));if(!localStorage.getItem('tt_products'))localStorage.setItem('tt_products',JSON.stringify(getAllSeedProducts()));if(!localStorage.getItem('tt_settings'))saveSettings(getSettings());})();
+window.addEventListener('hashchange',()=>{selectedSize='';selectedColor='';router();});
+router();
+setTimeout(updateCartCount,100);
+</script>
+</body>
+</html>
